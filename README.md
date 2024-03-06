@@ -1,0 +1,1 @@
+Having a bit of fun generating blue noise using [void and cluster](http://cv.ulichney.com/papers/1993-void-cluster.pdf).
