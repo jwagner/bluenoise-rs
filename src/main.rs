@@ -1,11 +1,44 @@
-use image::{GrayImage, RgbImage};
+use std::num::NonZeroU64;
+
+use image::GrayImage;
 use rand::{seq::SliceRandom, Rng, SeedableRng};
 
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, default_value = "bluenoise.png")]
+    output: String,
+
+    #[arg(short, long, default_value = "64")]
+    size: u16,
+
+    #[arg(long, default_value = "1.5")]
+    sigma: f32,
+
+    #[arg(long)]
+    seed: Option<NonZeroU64>,
+
+    #[arg(long)]
+    debug: Option<String>,
+}
+
 fn main() {
-    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(10);
-    let mut generator = BlueNoiseGenerator::new(512, 2.5);
+    let args = Args::parse();
+    let mut rng = if let Some(seed) = args.seed {
+        rand_chacha::ChaCha8Rng::seed_from_u64(seed.into())
+    } else {
+        rand_chacha::ChaCha8Rng::from_entropy()
+    };
+    let mut generator = BlueNoiseGenerator::new(args.size as i32, args.sigma);
     generator.generate(&mut rng);
-    generator.save_debug("foo");
+
+    generator.save_dither_array(&args.output);
+
+    if let Some(debug) = args.debug {
+        generator.save_debug(&debug);
+    }
 }
 
 #[derive(Debug, Default)]
@@ -177,6 +210,11 @@ impl BlueNoiseGenerator {
             .save(prefix.to_owned() + "_bp.png")
             .expect("save to succeed");
 
+        self.save_dither_array(&(prefix.to_owned() + "_da.png"));
+    }
+
+    fn save_dither_array(&self, name: &str) {
+        let s = self.size as u32;
         let dither_array_scale = 255.0
             / (*self
                 .dither_array
@@ -190,7 +228,7 @@ impl BlueNoiseGenerator {
             .collect();
         GrayImage::from_vec(s, s, dither_array_values)
             .unwrap()
-            .save(prefix.to_owned() + "_da.png")
+            .save(name)
             .expect("save to succeed");
     }
 
@@ -221,26 +259,3 @@ impl BlueNoiseGenerator {
         }
     }
 }
-
-// impl<T: Copy> Image<T> {
-//     fn get(&self, x: i32, y: i32) -> T {
-//         let x = (x % (self.width as i32)) as usize;
-//         let y = (y % (self.height as i32)) as usize;
-//         let i = y * self.width + x;
-//         self.data[i]
-//     }
-//     fn set(&mut self, x: i32, y: i32, value: T) {
-//         let x = (x % (self.width as i32)) as usize;
-//         let y = (y % (self.height as i32)) as usize;
-//         let i = y * self.width + x;
-//         self.data[i] = value;
-//     }
-// }
-
-// fn generate_prototype_binary_pattern<R: Rng>(rng: &mut R, img: &mut Image<u8>) {
-//     for x in &mut img.data {
-//         // the paper says no more than half should be ones.
-//         // This should make it less than that in most cases.
-//         *x = if rng.gen::<u8>() > 96u8 { 1 } else { 0 };
-//     }
-// }
