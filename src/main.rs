@@ -1,3 +1,5 @@
+use anyhow::Result;
+
 use std::num::NonZeroU64;
 
 use image::GrayImage;
@@ -34,10 +36,14 @@ fn main() {
     let mut generator = BlueNoiseGenerator::new(args.size as i32, args.sigma);
     generator.generate(&mut rng);
 
-    generator.save_dither_array(&args.output);
+    if let Err(err) = generator.save_dither_array(&args.output) {
+        eprintln!("Error saving output: {:?}", err);
+    }
 
     if let Some(debug) = args.debug {
-        generator.save_debug(&debug);
+        if let Err(err) = generator.save_debug(&debug) {
+            eprintln!("Error saving debug output: {:?}", err);
+        }
     }
 }
 
@@ -133,7 +139,6 @@ impl BlueNoiseGenerator {
                 }
             }
         }
-        // self.ones = ones;
     }
 
     fn generate_initial_binary_pattern(&mut self) {
@@ -184,7 +189,7 @@ impl BlueNoiseGenerator {
         self.generate_dither_array_phase_two();
     }
 
-    fn save_debug(&self, prefix: &str) {
+    fn save_debug(&self, prefix: &str) -> Result<()> {
         let density_scale = 1.0
             / self
                 .density
@@ -200,20 +205,19 @@ impl BlueNoiseGenerator {
         let s = self.size as u32;
 
         let density_img = GrayImage::from_vec(s, s, density_values).expect("image");
-        density_img
-            .save(prefix.to_owned() + "_density.png")
-            .expect("save to succeed");
+        density_img.save(prefix.to_owned() + "d.png")?;
 
         let binary_pattern_values: Vec<u8> = self.binary_pattern.iter().map(|x| x * 255).collect();
         GrayImage::from_vec(s, s, binary_pattern_values)
             .unwrap()
-            .save(prefix.to_owned() + "_bp.png")
-            .expect("save to succeed");
+            .save(prefix.to_owned() + "_bp.png")?;
 
-        self.save_dither_array(&(prefix.to_owned() + "_da.png"));
+        self.save_dither_array(&(prefix.to_owned() + "_da.png"))?;
+
+        Ok(())
     }
 
-    fn save_dither_array(&self, name: &str) {
+    fn save_dither_array(&self, name: &str) -> Result<()> {
         let s = self.size as u32;
         let dither_array_scale = 255.0
             / (*self
@@ -228,8 +232,9 @@ impl BlueNoiseGenerator {
             .collect();
         GrayImage::from_vec(s, s, dither_array_values)
             .unwrap()
-            .save(name)
-            .expect("save to succeed");
+            .save(name)?;
+
+        Ok(())
     }
 
     fn generate_dither_array_phase_one(&mut self) {
