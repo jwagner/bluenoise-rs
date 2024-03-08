@@ -1,3 +1,10 @@
+#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
+#![allow(
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_wrap,
+    clippy::cast_possible_truncation
+)]
 use anyhow::Result;
 
 use std::num::NonZeroU64;
@@ -28,21 +35,21 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-    let mut rng = if let Some(seed) = args.seed {
-        rand_chacha::ChaCha8Rng::seed_from_u64(seed.into())
-    } else {
-        rand_chacha::ChaCha8Rng::from_entropy()
-    };
-    let mut generator = BlueNoiseGenerator::new(args.size as i32, args.sigma);
+    let mut rng = args
+        .seed
+        .map_or_else(rand_chacha::ChaCha8Rng::from_entropy, |seed| {
+            rand_chacha::ChaCha8Rng::seed_from_u64(seed.into())
+        });
+    let mut generator = BlueNoiseGenerator::new(args.size, args.sigma);
     generator.generate(&mut rng);
 
     if let Err(err) = generator.save_dither_array(&args.output) {
-        eprintln!("Error saving output: {:?}", err);
+        eprintln!("Error saving output: {err:?}");
     }
 
     if let Some(debug) = args.debug {
         if let Err(err) = generator.save_debug(&debug) {
-            eprintln!("Error saving debug output: {:?}", err);
+            eprintln!("Error saving debug output: {err:?}");
         }
     }
 }
@@ -60,10 +67,10 @@ struct BlueNoiseGenerator {
 }
 
 impl BlueNoiseGenerator {
-    fn new(size: i32, sigma: f32) -> Self {
-        let n = (size * size) as usize;
+    fn new(size: u16, sigma: f32) -> Self {
+        let n = usize::from(size * size);
         Self {
-            size,
+            size: i32::from(size),
             sigma,
             binary_pattern: vec![0; n],
             filter_lut: vec![0.; n],
@@ -85,7 +92,7 @@ impl BlueNoiseGenerator {
         let i = (x + y * s) as usize;
         let old = self.binary_pattern[i];
         self.binary_pattern[i] = value;
-        let delta = value as i32 - old as i32;
+        let delta = i32::from(value) - i32::from(old);
         self.ones += delta;
         debug_assert!(self.ones >= 0);
         self.update_density(x, y, delta as f32);
@@ -120,14 +127,14 @@ impl BlueNoiseGenerator {
                 let i = (v + u * s) as usize;
                 let x = (u - s / 2) as f32;
                 let y = (v - s / 2) as f32;
-                let r_squared = x * x + y * y;
+                let r_squared = x.mul_add(x, y * y);
                 self.filter_lut[i] = (-r_squared * inv_denominator).exp();
             }
         }
     }
 
     fn generate_prototype_pattern(&mut self, rng: &mut impl Rng) {
-        let mut ranks: Vec<i32> = Vec::from_iter(0..self.size * self.size);
+        let mut ranks: Vec<i32> = (0..self.size * self.size).collect();
         ranks.shuffle(rng);
         let ones = self.size * self.size / 2 - 1;
         // let ones = 3;

@@ -1,5 +1,10 @@
 [package]
 name = "bluenoise-rs"
+description = "A basic blue noise generator"
+license = "MIT"
+repository = "https://github.com/jwagner/bluenoise-rs"
+categories = ["image-processing"]
+keywords = ["noise", "dithering", "noise", "void-and-cluster"]
 version = "0.1.0"
 edition = "2021"
 
