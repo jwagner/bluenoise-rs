@@ -17,18 +17,24 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
+    /// File to write image to
     #[arg(short, long, default_value = "bluenoise.png")]
     output: String,
 
+    /// Side length of the image in pixel
     #[arg(short, long, default_value = "64")]
     size: u16,
 
+    /// Standard deviation of the gaussian filter
     #[arg(long, default_value = "1.5")]
     sigma: f32,
 
+    /// Seed for the random number generator.
+    /// A random seed will be used if left undefined.
     #[arg(long)]
     seed: Option<NonZeroU64>,
 
+    /// Prefix to write debug images to
     #[arg(long)]
     debug: Option<String>,
 }
